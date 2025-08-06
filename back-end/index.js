@@ -12,7 +12,7 @@ app.use(cookieParser());
 app.use(cors({
   origin: ['http://localhost:5173',
 "https://western-gpt-ai.vercel.app"
-  ] // or your frontend origin
+  ], // or your frontend origin
   credentials: true
 }));
 app.use(express.json());
