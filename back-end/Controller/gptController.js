@@ -1,6 +1,7 @@
 import User from "../Gpt-Model/UserModel.js"
 import bcrypt from 'bcryptjs';
 import { sendWelcomeEmail,sendLoginEmail } from "../config/mail.js"
+import jwt from "jsonwebtoken";
 import { generateToken } from "../config/utilis.js";
 
 export const register = async (req, res) => {
@@ -98,15 +99,24 @@ export const logout = async (req,res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 }
-export const checkAuth = (req, res) => {
+export const checkAuth = async (req, res) => {
   try {
-    res.status(200).json({
-      id: req.user._id,
-      name: req.user.name,
-      email: req.user.email,
-    });
+    const token = req.cookies.jwt; // ✅ from cookie
+    if (!token) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select("-password");
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    res.json({ user });
   } catch (error) {
-    console.log("Error in checkAuth controller", error);
-    res.status(500).json({ msg: "internal error" });
+    console.error("Check Auth Error:", error);
+    res.status(401).json({ message: "Not authorized" });
   }
 };
+
