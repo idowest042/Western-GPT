@@ -74,15 +74,12 @@ export const login = async (req, res) => {
     // ✅ Send login email
     await sendLoginEmail(user.email, user.name);
 
-    return res.status(200).json({
+    const token = generateToken(user._id);
+    res.json({
       success: true,
       message: "Login successful",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        token: generateToken(user._id, res) 
-      },
+      user: { id: user._id, name: user.name, email: user.email },
+      token
     });
 
   } catch (error) {
@@ -98,25 +95,24 @@ export const logout = async (req,res) => {
         console.error("Logout error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
-}
+  }
+// Add this to your user routes
 export const checkAuth = async (req, res) => {
   try {
-    const token = req.cookies.jwt; // ✅ from cookie
-    if (!token) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select("-password");
-
-    if (!user) {
-      return res.status(401).json({ message: "User not found" });
-    }
-
-    res.json({ user });
+    // The user is already attached to req by the protectRoute middleware
+    res.json({
+      success: true,
+      user: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email
+      }
+    });
   } catch (error) {
-    console.error("Check Auth Error:", error);
-    res.status(401).json({ message: "Not authorized" });
+    console.error("Get user error:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
+// In your routes file, add:
+// router.get("/me", protectRoute, getMe);

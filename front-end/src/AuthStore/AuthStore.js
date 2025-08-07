@@ -1,69 +1,79 @@
-import { create } from 'zustand';
-import { axiosInstance } from '../config/axios';
-import { toast } from 'react-toastify';
+// src/AuthStore/AuthStore.js
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { axiosInstance } from "../config/axios";
+import { toast } from "react-toastify";
 
-export const AuthStore = create((set) => ({
-  authUser: null,
-  isSignup: false,
-  isLogging: false,
-  isLoggingOut: false,
-  isCheckingAuth: true,
+export const AuthStore = create(
+  persist(
+    (set) => ({
+      authUser: null,
+      token: null,
+      isLogging: false,
+      isLoggingOut: false,
+      isCheckingAuth: false,
 
-  signup: async (formData, navigate) => {
-    set({ isSignup: true });
+      signup: async (formData, navigate) => {
+        set({ isLogging: true });
+        try {
+          const { data } = await axiosInstance.post("/user/signup", formData);
+          set({ authUser: data.user, token: data.token });
+          localStorage.setItem("token", data.token);
+          toast.success("Account created");
+          navigate("/");
+        } catch (err) {
+          toast.error(err.response?.data?.message || "Signup error");
+        } finally {
+          set({ isLogging: false });
+        }
+      },
+
+      login: async (formData, navigate) => {
+        set({ isLogging: true });
+        try {
+          const { data } = await axiosInstance.post("/user/login", formData);
+          set({ authUser: data.user, token: data.token });
+          localStorage.setItem("token", data.token);
+          toast.success("Logged in");
+          navigate("/");
+        } catch (err) {
+          toast.error(err.response?.data?.message || "Login error");
+        } finally {
+          set({ isLogging: false });
+        }
+      },
+
+      logout: (navigate) => {
+        set({ authUser: null, token: null });
+        localStorage.removeItem("token");
+        toast.success("Logged out");
+        navigate("/login");
+      },
+
+      checkAuth: async () => {
     try {
-      const response = await axiosInstance.post('/user/signup', formData);
-      set({ authUser: response.data.user });
-      toast.success("Account Created successfully");
-      navigate('/');
+      set({ isCheckingAuth: true });
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        set({ isCheckingAuth: false, authUser: null, token: null });
+        return;
+      }
+
+      // Verify token with backend
+      const { data } = await axiosInstance.get("/user/check");
+      set({ authUser: data.user, token, isCheckingAuth: false });
     } catch (error) {
-      console.error("Signup Error:", error.response?.data || error.message);
-      toast.error(error.response?.data?.msg);
-    } finally {
-      set({ isSignup: false });
+      console.error("Auth check failed:", error);
+      localStorage.removeItem("token");
+      set({ authUser: null, token: null, isCheckingAuth: false });
     }
   },
 
-  login: async (formData, navigate) => {
-    set({ isLogging: true });
-    try {
-      const response = await axiosInstance.post('/user/login', formData);
-      set({ authUser: response.data.user }); // ✅ user object from backend
-      toast.success("Login successfully");
-      navigate('/');
-    } catch (error) {
-      console.error("Login Error:", error.response?.data || error.message);
-      toast.error(error.response?.data?.msg);
-    } finally {
-      set({ isLogging: false });
+    }),
+    {
+      name: "auth-storage",
+      partialize: (state) => ({ authUser: state.authUser, token: state.token })
     }
-  },
-
-  logout: async (navigate) => {
-    set({ isLoggingOut: true });
-    try {
-      await axiosInstance.post('/user/logout');
-      set({ authUser: null });
-      toast.success("Logout successfully");
-      navigate('/login');
-    } catch (error) {
-      console.error("Logout Error:", error.response?.data || error.message);
-      toast.error(error.response?.data?.msg);
-    } finally {
-      set({ isLoggingOut: false });
-    }
-  },
-
-  checkAuth: async () => {
-    set({ isCheckingAuth: true });
-    try {
-      const response = await axiosInstance.get('/user/check');
-      set({ authUser: response.data.user });
-    } catch (error) {
-      console.error("Check Auth Error:", error.response?.data || error.message);
-      set({ authUser: null });
-    } finally {
-      set({ isCheckingAuth: false });
-    }
-  }
-}));
+  )
+);
