@@ -12,3 +12,7 @@
 .animate-bounce {
   animation: bounce 1s infinite ease-in-out;
 }
+.break-words {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}

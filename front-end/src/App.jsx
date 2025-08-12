@@ -2,7 +2,7 @@ import React from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Signup from './Pages/Signup'
 import Login from './Pages/Login'
-import Home from './Components/Home'
+import ChatContainer from './Components/ChatContainer'
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthStore } from './AuthStore/AuthStore'
@@ -33,7 +33,7 @@ const App = () => {
         <Routes>
           <Route path='/register' element={!authUser ? <Signup/> : <Navigate to='/' />}/>
           <Route path='/login' element={!authUser ? <Login/> : <Navigate to='/' />}/>
-          <Route path='/' element={authUser ? <Home/> : <Navigate to='/login' />}/>
+          <Route path='/' element={authUser ? <ChatContainer/> : <Navigate to='/login' />}/>
         </Routes>
       </div>
     </>

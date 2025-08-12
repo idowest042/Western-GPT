@@ -21,7 +21,7 @@ const MessageList = () => {
 
       {messages.length === 0 && !loading && (
         <div className="flex flex-col items-center justify-center h-full text-[#a0a0a0]">
-          <Bot className="h-12 w-12 mb-4 text-[#d4af37]" />
+          <Bot className="h-12 w-12 mb-4 text-[#d4af37] animate-bounce" />
           <p>Howdy partner! Ask me anything about the Wild West</p>
         </div>
       )}

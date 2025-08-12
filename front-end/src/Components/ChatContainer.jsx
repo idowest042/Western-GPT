@@ -12,12 +12,10 @@ const ChatContainer = () => {
     const initializeChat = async () => {
       await fetchChats();
       
-      // If there's an activeChatId in localStorage, use it
       const savedChatId = localStorage.getItem('activeChatId');
       if (savedChatId && chats.some(chat => chat._id === savedChatId)) {
         await getMessages(savedChatId);
       } else if (chats.length > 0) {
-        // Otherwise use the most recent chat
         const recentChat = chats[0];
         localStorage.setItem('activeChatId', recentChat._id);
         await getMessages(recentChat._id);

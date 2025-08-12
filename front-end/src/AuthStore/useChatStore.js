@@ -55,21 +55,24 @@ export const useChatStore = create((set, get) => ({
 },
 
   // Send message with proper title handling
-  sendMessage: async (message) => {
+  // In your Zustand store actions
+ sendMessage: async (message) => {
     const { activeChatId, messages, chats } = get();
     if (!activeChatId) {
       toast.error("Please select or create a chat first");
       return;
     }
 
+    // Set loading to true immediately
+    set({ loading: true });
+
     // Generate temp ID for optimistic update
     const tempId = Date.now().toString();
     const newMessage = { _id: tempId, role: "user", content: message, temp: true };
 
-    // Optimistic update
+    // Optimistic update for user message
     set({
       messages: [...messages, newMessage],
-      loading: true
     });
 
     try {
@@ -91,15 +94,15 @@ export const useChatStore = create((set, get) => ({
         messages: [
           ...messages.filter(m => !m.temp),
           { role: "user", content: message },
-          ...res.data.messages
+          { role: "assistant", content: res.data.reply }
         ],
-        loading: false
+        loading: false // Reset loading when done
       });
     } catch (error) {
       // Rollback on error
       set({
         messages: messages.filter(m => m._id !== tempId),
-        loading: false
+        loading: false // Reset loading on error too
       });
       toast.error(error.response?.data?.error || "Failed to send message");
     }
