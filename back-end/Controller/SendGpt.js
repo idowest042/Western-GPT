@@ -1,24 +1,32 @@
 import Message from "../Gpt-Model/GptMessageModel.js";
 import Chat from "../Gpt-Model/GptModel.js";
+import Groq from "groq-sdk";
+
+// Initialize Groq client
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY
+});
 
 export const SendMessage = async (req, res) => {
   try {
-    const { message } = req.body;  // Only get message from body
-    const { chatId } = req.params; // Get chatId from URL params ← This is the fix!
+    const { message } = req.body;
+    const { chatId } = req.params;
 
     console.log("=== DEBUG START ===");
     console.log("Received:", { message, chatId });
 
-    // Validate inputs
     if (!chatId) {
       return res.status(400).json({ message: "chatId is required" });
     }
-    
+
     if (!message) {
       return res.status(400).json({ message: "message is required" });
     }
 
-    // Check if chat exists first
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(500).json({ message: "GROQ_API_KEY not configured" });
+    }
+
     const existingChat = await Chat.findById(chatId);
     console.log("Chat found:", !!existingChat);
 
@@ -26,50 +34,57 @@ export const SendMessage = async (req, res) => {
       return res.status(404).json({ message: "Chat not found" });
     }
 
-    // Push user's message to chat
+    // ✅ Store user message in DB
     await Chat.findByIdAndUpdate(chatId, {
       $push: { messages: { role: "user", content: message } }
     });
 
-    // Call Groq API
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama3-8b-8192",
-        messages: [{ role: "user", content: message }],
-        max_tokens: 200
-      })
+    console.log("Making Groq API request...");
+
+    // ✅ Groq API Call using official SDK
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: message }],
+      model: "llama-3.1-8b-instant",
+      temperature: 0.7,
+      max_tokens: 1000,
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Groq API error:", errText);
-      return res.status(response.status).json({ message: errText });
-    }
+    const aiReply = chatCompletion.choices[0]?.message?.content || "No response";
 
-    const data = await response.json();
-    const aiReply = data.choices[0].message.content || "No reply";
+    console.log("AI Reply:", aiReply);
 
-    // Push AI reply into chat
+    // ✅ Append AI message to DB
     await Chat.findByIdAndUpdate(chatId, {
       $push: { messages: { role: "assistant", content: aiReply } }
     });
 
-    // Send to frontend
-    res.status(200).json({
+    // ✅ Send response to frontend
+    return res.status(200).json({
       reply: aiReply,
-      messages: [
-        { role: "assistant", content: aiReply }  // Only return AI message since user message is already added optimistically
-      ]
+      messages: [{ role: "assistant", content: aiReply }]
     });
 
   } catch (error) {
-    console.error("Error in SendMessage:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("=== ERROR DETAILS ===");
+    console.error("Error:", error.message);
+    console.error("Full error:", error);
+    
+    // Better error handling
+    if (error.status === 401) {
+      return res.status(401).json({ 
+        message: "Invalid Groq API key - please check your key at https://console.groq.com/keys",
+      });
+    }
+    if (error.status === 429) {
+      return res.status(429).json({ 
+        message: "Rate limit exceeded",
+      });
+    }
+    
+    return res.status(500).json({ 
+      message: "Internal server error",
+      error: error.message 
+    });
   }
 };
 
